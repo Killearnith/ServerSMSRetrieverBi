@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Color;
 import android.os.Bundle;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -165,7 +166,33 @@ public class MainActivity extends AppCompatActivity {
                                                                             @Override
                                                                             public void onSuccess(Void aVoid) {
                                                                                 Log.d(TAG, "CODIGO VERIFICADO!");
+                                                                                RequestQueue requestTokenQueue = Volley.newRequestQueue(MainActivity.this);
+                                                                                JSONObject tokenData = new JSONObject();
+                                                                                String url ="https://smsretrieverservera-default-rtdb.europe-west1.firebasedatabase.app/numeros.json?auth="+auth;
+                                                                                try {
+                                                                                    String token = generarToken(12);
+                                                                                    tokenData.put("token", token);
+                                                                                    textAbajo.setTextColor(Color.parseColor("#03A9F4"));
+                                                                                    textAbajo.setText("El token de la conexión con el cliente es " +token);
 
+                                                                                    //tokenData.put("otp", null);
+                                                                                    //tokenData.put("tel", null);
+                                                                                } catch (JSONException e) {
+                                                                                    e.printStackTrace();
+                                                                                }
+                                                                                // Borramos la info en la URL.
+                                                                                JsonObjectRequest jsonDelObjectRequest = new JsonObjectRequest(Request.Method.PUT, url, tokenData, new Response.Listener<JSONObject>() {
+                                                                                    @Override
+                                                                                    public void onResponse(JSONObject response) {
+                                                                                        Log.d(TAG, "¡Canal de comunicación solo con token!");
+                                                                                    }
+                                                                                }, new Response.ErrorListener() {
+                                                                                    @Override
+                                                                                    public void onErrorResponse(VolleyError error) {
+                                                                                        error.printStackTrace();
+                                                                                    }
+                                                                                });
+                                                                                requestTokenQueue.add(jsonDelObjectRequest);
                                                                             }
                                                                         })
                                                                         .addOnFailureListener(new OnFailureListener() {
@@ -257,6 +284,18 @@ public class MainActivity extends AppCompatActivity {
         int num;
         num = new Random().nextInt(900000) + 100000;
         return num;
+    }
+
+    private String generarToken(int lon){
+        String posibleChar = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";          //Posibles chars
+        Random r = new Random();
+        String token = null;
+        StringBuilder tokenB = new StringBuilder(lon);              //Generamos una cadena de tam max = lon
+        for (int i = 0; i < lon; i++) {
+            tokenB.append(posibleChar.charAt(r.nextInt(posibleChar.length())));   //Añadimos un nuevo char a la cadena
+        }
+        token =tokenB.toString();
+        return token;
     }
 
     private String crearMensaje() {
