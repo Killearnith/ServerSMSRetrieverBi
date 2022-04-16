@@ -43,22 +43,29 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "ServerA";
     private FirebaseFirestore mDatabase;
-    private String nTel, msg;
-    private int rCode;
-    private TextView textView;
+    private String nTel, msg, telVerif, telAux;
+    private int rCode, codeTel;
+    private TextView textView, textAbajo;
     private FirebaseApp app;
     private FirebaseAuth auten;
     private String auth;
+    private Clave clave;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,23 +79,23 @@ public class MainActivity extends AppCompatActivity {
 
         //Enlazar views
         textView = (TextView) findViewById(R.id.text);
-
+        textAbajo = (TextView) findViewById(R.id.textabajo);
         //Instanciar la base de datos
+        mDatabase = FirebaseFirestore.getInstance();
         //Autenticar en la BD
 
         app = FirebaseApp.initializeApp(this);
         auten = FirebaseAuth.getInstance();
 
 
-
         //Obtener token de Auth
-        String url ="https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key=AIzaSyCO0wQa_fia6ojLkFCzLG-sft5XUWF2Skw";
-        Log.d("Test","Aqui llego");
+        String url = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/verifyPassword?key=AIzaSyCO0wQa_fia6ojLkFCzLG-sft5XUWF2Skw";
+        Log.d("Test", "Aqui llego");
         // Request a string response from the provided URL.
         RequestQueue requestQueue = Volley.newRequestQueue(this);
         JSONObject postData = new JSONObject();
         try {
-            postData.put("email","a@a.com");
+            postData.put("email", "a@a.com");
             postData.put("password", "123456");
             postData.put("returnSecureToken", true);
         } catch (JSONException e) {
@@ -114,101 +121,152 @@ public class MainActivity extends AppCompatActivity {
         });
         requestQueue.add(jsonObjectPost);
         //Obtener tel ---->
-        Log.d("Test","Aqui tmb");
-        auten.signInWithEmailAndPassword("a@a.com","123456").addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+        Log.d("Test", "Aqui tmb");
+        auten.signInWithEmailAndPassword("a@a.com", "123456").addOnCompleteListener(new OnCompleteListener<AuthResult>() {
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
+                DatabaseReference myRef = FirebaseDatabase.getInstance().getReference();
+                myRef.child("numeros").addValueEventListener(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                        RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
+                        String url2 = "https://smsretrieverservera-default-rtdb.europe-west1.firebasedatabase.app/numeros.json?auth="+auth;
+                        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest
+                                (Request.Method.GET, url2, null, new Response.Listener<JSONObject>() {
+                                    @Override
+                                    public void onResponse(JSONObject response) {
+                                        try {
+                                            if (response.length() == 1 && nTel==null) {
+                                                Toast.makeText(getApplicationContext(), "Solo se manda el tel", Toast.LENGTH_SHORT).show();
+                                                nTel = response.getString("tel");
+                                                textView.setText("Recibida petición de: " + nTel);
+                                            } else if ((response.length() == 2) && (response.has("otp"))) {
+                                                telVerif = response.getString("tel");
+                                                codeTel = response.getInt("otp");
+                                                textView.setText("Recibida petición de verificación de: " + telVerif);
+                                                textAbajo.setText("El código OTP recibido es: " + codeTel);
+                                                if (telVerif != null && codeTel != 0 && (telVerif.equals(telAux)) && (codeTel==rCode)) {
+                                                    DocumentReference docRef = mDatabase.collection("code").document("verifCodes");
+                                                    docRef.get().addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                                                        @Override
+                                                        public void onSuccess(DocumentSnapshot documentSnapshot) {
+                                                            ListCode lCode = documentSnapshot.toObject(ListCode.class);
+                                                            if (lCode != null) {
+                                                                Log.d(TAG, "Dentro del object listCode, creando la fila");
+                                                                clave = new Clave();
+                                                                clave.setCode(codeTel);
+                                                                clave.setNumtel(telVerif);
+                                                                //Vaciamos el contenido
+                                                                telVerif = null;
+                                                                clave.setExpiracion(Timestamp.now());
+                                                                mDatabase.collection("code").document("verifCodes")
+                                                                        .update("lCode", FieldValue.arrayUnion(clave))
+                                                                        .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                                                            @Override
+                                                                            public void onSuccess(Void aVoid) {
+                                                                                Log.d(TAG, "CODIGO VERIFICADO!");
 
+                                                                            }
+                                                                        })
+                                                                        .addOnFailureListener(new OnFailureListener() {
+                                                                            @Override
+                                                                            public void onFailure(@NonNull Exception e) {
+                                                                                Log.w(TAG, "Error con el documento", e);
+                                                                            }
+                                                                        });
+                                                            }
+                                                        }
+                                                    });
+                                                }
+
+                                            } else if (response.length() == 0){
+                                                textView.setText("Canal de comunicación borrado");
+                                            }else textView.setText("ERROR DATOS ERRONEOS POR API REST");
+
+                                        } catch (JSONException e) {
+                                            e.printStackTrace();
+                                        }
+                                        if (nTel != null) {
+                                            //Creamos el nuevo codigo OTP.
+                                            rCode = crearCodigo();
+                                            textAbajo.setText("El código OTP enviado es: " + rCode);
+                                            msg = crearMensaje();
+                                            sendSMS(nTel, msg);
+                                            telAux = nTel;
+                                            //Si no hay num tel no escribe en la BD
+                                                Toast.makeText(getApplicationContext(), "El num de tel es: " + nTel, Toast.LENGTH_LONG).show();
+                                                //Guardamos el codigo en la BD
+                                                DocumentReference docRef = mDatabase.collection("code").document("listcode");
+                                                docRef.get().addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
+                                                    @Override
+                                                    public void onSuccess(DocumentSnapshot documentSnapshot) {
+                                                        ListCode lCode = documentSnapshot.toObject(ListCode.class);
+                                                        if (lCode != null) {
+                                                            Log.d(TAG, "Dentro del object listCode, creando la fila");
+                                                            clave = new Clave();
+                                                            clave.setCode(rCode);
+                                                            clave.setNumtel(nTel);
+                                                            //Vaciamos el contenido
+                                                            nTel = null;
+
+                                                            clave.setExpiracion(Timestamp.now());
+                                                            mDatabase.collection("code").document("listcode")
+                                                                    .update("lCode", FieldValue.arrayUnion(clave))
+                                                                    .addOnSuccessListener(new OnSuccessListener<Void>() {
+                                                                        @Override
+                                                                        public void onSuccess(Void aVoid) {
+                                                                            Log.d(TAG, "DocumentSnapshot successfully written!");
+                                                                        }
+                                                                    })
+                                                                    .addOnFailureListener(new OnFailureListener() {
+                                                                        @Override
+                                                                        public void onFailure(@NonNull Exception e) {
+                                                                            Log.w(TAG, "Error writing document", e);
+                                                                        }
+                                                                    });
+                                                        }
+                                                    }
+                                                });
+                                                  //Fin IF
+                                        }
+
+                                    }
+                                }, new Response.ErrorListener() {
+                                    @Override
+                                    public void onErrorResponse(VolleyError error) {
+                                        Toast.makeText(getApplicationContext(), "No hay mensajes", Toast.LENGTH_LONG).show();
+                                    }
+                                });
+                        queue.add(jsonObjectRequest);
+
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Log.w("SE BORRAN COSAS", "SE ESTAN BORRANDO COSAS");
+                    }
+                });
             }
         });
-        DatabaseReference myRef = FirebaseDatabase.getInstance().getReference();
-        myRef.child("numeros").addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                RequestQueue queue = Volley.newRequestQueue(MainActivity.this);
-                String url2 ="https://smsretrieverservera-default-rtdb.europe-west1.firebasedatabase.app/numeros.json?auth="+auth;
-                JsonObjectRequest jsonObjectRequest = new JsonObjectRequest
-                        (Request.Method.GET, url2, null, new Response.Listener<JSONObject>() {
 
-                            @Override
-                            public void onResponse(JSONObject response) {
-                                try {
-                                    nTel=response.getString("tel");
-                                } catch (JSONException e) {
-                                    e.printStackTrace();
-                                }
-                                textView.setText("Recibida petición de: "+nTel);
-                                if(nTel!=null){
-                                    //Creamos el nuevo codigo OTP.
-                                    rCode = crearCodigo();
-                                    msg = crearMensaje();
-                                    sendSMS(nTel,msg);
-                                    //SmsManager sms = SmsManager.getDefault();
-                                    //PendingIntent sentSMS;
-                                    //String SENT = "SMS_SENT";
-                                    //sentSMS = PendingIntent.getBroadcast(MainActivity.this, 0,new Intent(SENT), FLAG_IMMUTABLE);
-                                    //sms.sendTextMessage(nTel, null, msg, null, null);
-                                }
-                            }
-                        }, new Response.ErrorListener() {
-                            @Override
-                            public void onErrorResponse(VolleyError error) {
-                                Toast.makeText(getApplicationContext(), "No hay mensajes", Toast.LENGTH_LONG).show();
-                            }
-                        });
-                queue.add(jsonObjectRequest);
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-
-            }
-        });
-
-        
     }
     //Obtenemos los datos que queremos guardar en la BD para tener un control
 
-        /*
-        //Guardamos el codigo en la BD
-        DocumentReference docRef = mDatabase.collection("code").document("listcode");
-        docRef.get().addOnSuccessListener(new OnSuccessListener<DocumentSnapshot>() {
-            @Override
-            public void onSuccess(DocumentSnapshot documentSnapshot) {
-                ListCode lCode = documentSnapshot.toObject(ListCode.class);
-                if (lCode != null) {
-                    Log.d(TAG, "Dentro del object listCode, creando la fila");
-                    Clave clave = new Clave();
-                    clave.setCode(rCode);
-                    clave.setNumtel(nTel);
-                    clave.setExpiracion(Timestamp.now());
-                }
-            }
-        })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception e) {
-                        Log.w(TAG, "Fallo al añadir nueva fila al registro", e);
-                    }
-                });
-
-*/
-
     //Método que crea el código OTP aleatorio.
-    private int crearCodigo(){
+    private int crearCodigo() {
         int num;
         num = new Random().nextInt(900000) + 100000;
         return num;
     }
 
-    private String crearMensaje(){
+    private String crearMensaje() {
         String msg;
-        msg = "Tú código OTP es: "+rCode+"\n"+"g3Mji1k3j7Q";
+        msg = "Tú código OTP es: " + rCode + "\n" + "g3Mji1k3j7Q";
         return msg;
     }
+
     //https://localcoder.org/how-to-monitor-each-of-sent-sms-status
-    private void sendSMS(String phoneNumber, String message)
-    {
+    private void sendSMS(String numeroTel, String mensaje) {
         String enviado = "SMS_SENT";
         String recibido = "SMS_DELIVERED";
 
@@ -216,19 +274,18 @@ public class MainActivity extends AppCompatActivity {
         PendingIntent deliveredPI = PendingIntent.getBroadcast(this, 0, new Intent(recibido), FLAG_IMMUTABLE);
 
         //---when the SMS has been sent---
-        registerReceiver(new BroadcastReceiver(){
+        registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context arg0, Intent arg1) {
-                switch (getResultCode())
-                {
+                switch (getResultCode()) {
                     case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS enviado",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getBaseContext(), "SMS enviado", Toast.LENGTH_SHORT).show();
                         break;
                     case SmsManager.RESULT_ERROR_GENERIC_FAILURE:
-                        Toast.makeText(getBaseContext(), "Fallo genérico",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getBaseContext(), "Fallo genérico", Toast.LENGTH_SHORT).show();
                         break;
                     case SmsManager.RESULT_ERROR_NO_SERVICE:
-                        Toast.makeText(getBaseContext(), "Sin servicio error",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getBaseContext(), "Sin servicio error", Toast.LENGTH_SHORT).show();
                         break;
                     case SmsManager.RESULT_ERROR_NULL_PDU:
                         Toast.makeText(getBaseContext(), "Null PDU",
@@ -243,22 +300,21 @@ public class MainActivity extends AppCompatActivity {
         }, new IntentFilter(enviado));
 
         //---when the SMS has been delivered---
-        registerReceiver(new BroadcastReceiver(){
+        registerReceiver(new BroadcastReceiver() {
             @Override
             public void onReceive(Context arg0, Intent arg1) {
-                switch (getResultCode())
-                {
+                switch (getResultCode()) {
                     case Activity.RESULT_OK:
-                        Toast.makeText(getBaseContext(), "SMS mandado correctamente",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getBaseContext(), "SMS mandado correctamente", Toast.LENGTH_SHORT).show();
                         break;
                     case Activity.RESULT_CANCELED:
-                        Toast.makeText(getBaseContext(), "Ha fallado el envío de SMS",Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getBaseContext(), "Ha fallado el envío de SMS", Toast.LENGTH_SHORT).show();
                         break;
                 }
             }
         }, new IntentFilter(recibido));
 
         SmsManager sms = SmsManager.getDefault();
-        sms.sendTextMessage(phoneNumber, null, message, sentPI, deliveredPI);
+        sms.sendTextMessage(numeroTel, null, mensaje, sentPI, deliveredPI);
     }
 }
