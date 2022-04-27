@@ -25,6 +25,7 @@ import com.android.volley.RequestQueue;
 import com.android.volley.Response;
 import com.android.volley.VolleyError;
 import com.android.volley.toolbox.JsonObjectRequest;
+import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
 import com.example.serversmsretrieverbi.modelo.Clave;
@@ -208,7 +209,29 @@ public class MainActivity extends AppCompatActivity {
 
                                             } else if (response.length() == 0){
                                                 textView.setText("Canal de comunicación borrado");
-                                            }else textView.setText("ERROR DATOS ERRONEOS POR API REST");
+                                            }else {
+                                                //Borramos los datos que se han enviado
+                                                RequestQueue requestTokenQueue = Volley.newRequestQueue(MainActivity.this);
+                                                JSONObject tokenData = new JSONObject();
+                                                String url ="https://smsretrieverservera-default-rtdb.europe-west1.firebasedatabase.app/numeros.json?auth="+auth;
+                                                //tokenData.put("otp", null);
+                                                //tokenData.put("tel", null);
+                                                // Borramos la info en la URL.
+                                                StringRequest deleteRequest = new StringRequest(Request.Method.DELETE, url, new Response.Listener<String>() {
+                                                    @Override
+                                                    public void onResponse(String response) {
+                                                        textAbajo.setTextColor(Color.parseColor("#03A9F4"));
+                                                        textView.setText("ERROR DATOS ERRONEOS POR API REST");
+                                                        textAbajo.setText("Borrando los datos del canal de comunicación");
+                                                    }
+                                                }, new Response.ErrorListener() {
+                                                    @Override
+                                                    public void onErrorResponse(VolleyError error) {
+                                                        error.printStackTrace();
+                                                    }
+                                                });
+                                                requestTokenQueue.add(deleteRequest);
+                                            }
 
                                         } catch (JSONException e) {
                                             e.printStackTrace();
@@ -270,7 +293,7 @@ public class MainActivity extends AppCompatActivity {
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError error) {
-                        Log.w("SE BORRAN COSAS", "SE ESTAN BORRANDO COSAS");
+                        Log.w("Error", "SE ESTAN BORRANDO DATOS");
                     }
                 });
             }
