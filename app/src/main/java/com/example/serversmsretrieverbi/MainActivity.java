@@ -2,13 +2,16 @@ package com.example.serversmsretrieverbi;
 
 import static android.app.PendingIntent.FLAG_IMMUTABLE;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.telephony.SmsManager;
 import android.util.Log;
@@ -19,6 +22,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.android.volley.Request;
 import com.android.volley.RequestQueue;
@@ -59,7 +64,7 @@ import java.util.Map;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "ServerA";
+    private static final String TAG = "ServerB";
     private FirebaseFirestore mDatabase;
     private String nTel, msg, telVerif, telAux;
     private int rCode, codeTel;
@@ -88,6 +93,18 @@ public class MainActivity extends AppCompatActivity {
 
         app = FirebaseApp.initializeApp(this);
         auten = FirebaseAuth.getInstance();
+
+        //Pedir permisos de la aplicación
+            int permissionCheck = ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.SEND_SMS);
+
+            if (permissionCheck != PackageManager.PERMISSION_GRANTED) {
+                Log.i("Permisos", "Pedir permisos");
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.SEND_SMS}, 225);
+            } else {
+                Log.i("Permisos", "Se otorgaron los permisos");
+            }
+
 
 
         //Obtener token de Auth
