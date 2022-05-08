@@ -1,4 +1,4 @@
-package com.example.serversmsretrieverbi.Android;
+package com.example.serversmsretrieverbi.Actividades;
 
 import static android.app.PendingIntent.FLAG_IMMUTABLE;
 
@@ -37,13 +37,9 @@ import com.android.volley.toolbox.Volley;
 import com.example.serversmsretrieverbi.R;
 import com.example.serversmsretrieverbi.modelo.Clave;
 import com.example.serversmsretrieverbi.modelo.GuardarEnDB;
-import com.example.serversmsretrieverbi.modelo.ListCode;
 import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
-import com.google.firebase.Timestamp;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -51,9 +47,6 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
-import com.google.firebase.firestore.DocumentReference;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONException;
