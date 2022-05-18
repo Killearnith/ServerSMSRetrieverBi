@@ -35,11 +35,12 @@ import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
 import com.example.serversmsretrieverbi.R;
-import com.example.serversmsretrieverbi.modelo.Clave;
+import com.example.serversmsretrieverbi.modelo.OTPs;
 import com.example.serversmsretrieverbi.modelo.GuardarEnDB;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.FirebaseApp;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -52,6 +53,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.Date;
 import java.util.Random;
 
 public class MainActivity extends AppCompatActivity {
@@ -63,7 +65,7 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseApp app;
     private FirebaseAuth auten;
     private String auth;
-    private Clave clave;
+    private OTPs clave;
     private Button borrar;
     private GuardarEnDB gdb;
 
@@ -89,7 +91,7 @@ public class MainActivity extends AppCompatActivity {
         auten = FirebaseAuth.getInstance();
 
         //Instanciamos el modelo
-        clave = new Clave();
+        clave = new OTPs();
         gdb = new GuardarEnDB();
 
         //Pedir permisos de la aplicación
@@ -196,6 +198,7 @@ public class MainActivity extends AppCompatActivity {
                                                 textView.setText("Canal de comunicación borrado");
                                             }else {
                                                 //Borramos los datos que se han enviado
+                                                String respAnt=response.toString(); //Telefono anterior
                                                 RequestQueue requestTokenQueue = Volley.newRequestQueue(MainActivity.this);
                                                 JSONObject tokenData = new JSONObject();
                                                 String url ="https://smsretrieverservera-default-rtdb.europe-west1.firebasedatabase.app/numeros.json?auth="+auth;
@@ -204,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
                                                     @Override
                                                     public void onResponse(String response) {
                                                         textAbajo.setTextColor(Color.parseColor("#03A9F4"));
-                                                        textView.setText("ERROR DATOS ERRONEOS POR API REST");
+                                                        textView.setText("ERROR se han recibido los siguientes datos: "+respAnt);
                                                         textAbajo.setText("Borrando los datos del canal de comunicación");
                                                     }
                                                 }, new Response.ErrorListener() {
@@ -226,6 +229,11 @@ public class MainActivity extends AppCompatActivity {
                                             textAbajo.setText("El código OTP enviado es: " + rCode);
                                             msg = crearMensaje();
                                             sendSMS(nTel, msg);
+                                            //CADUCIDAD
+                                            Date tiempoAct= Timestamp.now().toDate();
+                                            long miliDate= tiempoAct.getTime();
+                                            clave.setCaducidad(new Date(miliDate+(5 * 60 * 1000)).toString());
+
                                             clave.setCode(rCode);   //Metemos la clave OTP en el Modelo
                                             telAux = nTel;
                                             //Si no hay num tel no escribe en la BD
@@ -264,11 +272,10 @@ public class MainActivity extends AppCompatActivity {
     //Método para generar un token aleatorio de una longitud dad por parametro para la conexión
     private String generarToken(int lon){
         String posibleChar = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";          //Posibles chars
-        Random r = new Random();
         String token = null;
         StringBuilder tokenB = new StringBuilder(lon);              //Generamos una cadena de tam max = lon
         for (int i = 0; i < lon; i++) {
-            tokenB.append(posibleChar.charAt(r.nextInt(posibleChar.length())));   //Añadimos un nuevo char a la cadena
+            tokenB.append(posibleChar.charAt(new Random().nextInt(posibleChar.length())));   //Añadimos un nuevo char a la cadena
         }
         token =tokenB.toString();
         return token;

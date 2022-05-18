@@ -14,11 +14,11 @@ import com.google.firebase.firestore.FirebaseFirestore;
 
 public class GuardarEnDB {
     private FirebaseFirestore mDatabase;
-    private Clave clave;
+    private OTPs clave;
     public GuardarEnDB(){}
 
 
-    public void guardarDatos(Clave clave, String documento) {
+    public void guardarDatos(OTPs clave, String documento) {
         mDatabase = FirebaseFirestore.getInstance();
         //Autenticar en la BD
             //Guardamos el codigo en la BD
