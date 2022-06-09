@@ -98,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
         gdb = new GuardarEnDB();
 
         //Pedir permisos de la aplicación
+        //REF: https://stackoverflow.com/questions/35484767/activitycompat-requestpermissions-not-showing-dialog-box
             int permissionCheck = ContextCompat.checkSelfPermission(
                     this, Manifest.permission.SEND_SMS);
 
@@ -285,6 +286,9 @@ public class MainActivity extends AppCompatActivity {
         return num;
     }
 
+
+    //Ref: https://stackoverflow.com/questions/41107/how-to-generate-a-random-alpha-numeric-string
+    //Modificado
     //Método para generar un token aleatorio de una longitud dad por parametro para la conexión
     private String generarToken(int lon){
         String posibleChar = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";          //Posibles chars
@@ -303,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
         return msg;
     }
 
-    //https://localcoder.org/how-to-monitor-each-of-sent-sms-status
+    //Ref: https://localcoder.org/how-to-monitor-each-of-sent-sms-status
     private void sendSMS(String numeroTel, String mensaje) {
         String enviado = "SMS_SENT";
         String recibido = "SMS_DELIVERED";
